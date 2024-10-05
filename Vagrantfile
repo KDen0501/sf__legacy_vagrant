@@ -1,20 +1,44 @@
 Vagrant.configure("2") do |config|
-  config.vm.box = "jammy-server-cloudimg-amd64-vagrant.box" 
+  # Используем базовый образ Ubuntu 24.04
+  config.vm.box = "ubuntu/focal64"
+  config.vm.hostname = "postgres-vm"
 
+  # Настраиваем публичную сеть (например, для доступа через IP)
+  config.vm.network "public_network", type: "dhcp"
+
+  # Настраиваем виртуальную машину
+  config.vm.provider "virtualbox" do |vb|
+    vb.memory = "2048"
+    vb.cpus = 2
+  end
+
+  # Устанавливаем PostgreSQL 8.4
   config.vm.provision "shell", inline: <<-SHELL
-    # Установка необходимых пакетов
     sudo apt-get update
-    sudo apt-get install -y wget gnupg2
-    wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
-    echo "deb http://apt.postgresql.org/pub/repos/apt/ bionic-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
-    sudo apt-get update
-    sudo apt-get install -y postgresql-12 postgresql-client-12
+    sudo apt-get install -y wget build-essential
 
-    # Запуск службы PostgreSQL
-    sudo service postgresql start
+    # Скачиваем и добавляем старый репозиторий
+    wget https://ftp.postgresql.org/pub/source/v8.4.22/postgresql-8.4.22.tar.gz
+    tar -xzf postgresql-8.4.22.tar.gz
+    cd postgresql-8.4.22
 
-    # Настройка PostgreSQL
-    sudo -u postgres psql -c "CREATE USER vagrant WITH PASSWORD 'vagrant';"
-    sudo -u postgres psql -c "CREATE DATABASE vagrantdb WITH OWNER vagrant;"
+    # Устанавливаем зависимости и собираем PostgreSQL 8.4
+    sudo apt-get install -y libreadline-dev zlib1g-dev
+    ./configure
+    make
+    sudo make install
+
+    # Настройка системного пользователя для PostgreSQL
+    sudo adduser --disabled-password --gecos "" postgres
+    sudo mkdir /usr/local/pgsql/data
+    sudo chown postgres /usr/local/pgsql/data
+
+    # Инициализация базы данных и запуск сервера
+    sudo su - postgres -c "/usr/local/pgsql/bin/initdb -D /usr/local/pgsql/data"
+    sudo su - postgres -c "/usr/local/pgsql/bin/pg_ctl -D /usr/local/pgsql/data -l logfile start"
+
+    # Добавляем PostgreSQL в PATH
+    echo 'export PATH=/usr/local/pgsql/bin:$PATH' >> ~/.bashrc
+    source ~/.bashrc
   SHELL
 end
