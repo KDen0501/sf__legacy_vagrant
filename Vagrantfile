@@ -1,5 +1,5 @@
 Vagrant.configure("2") do |config|
-  config.vm.box = "ubuntu/bionic64"  # Используем Ubuntu 18.04
+  config.vm.box = "jammy-server-cloudimg-amd64-vagrant.box" 
 
   config.vm.provision "shell", inline: <<-SHELL
     # Установка необходимых пакетов
